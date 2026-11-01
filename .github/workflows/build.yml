@@ -1,0 +1,60 @@
+name: Rebuild app episode list
+
+# Every 15 minutes, 5 minutes after podcast-feeds refreshes the categories.
+on:
+  schedule:
+    - cron: "5,20,35,50 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["app/tools/**", "app/catalog/hidden.json", "app/catalog/videos.json", "app/catalog/category_icons.json"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-catalog
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Categories (read-only): rssfeedcategories/podcast-feeds is public and is never changed from here.
+      - name: Get categories from podcast-feeds
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          repository: rssfeedcategories/podcast-feeds
+          path: _cats
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Updates app/catalog/archive.json (our hard copy) and app/catalog.json.
+      # Problems with the feed or the categories only warn; the archive is kept.
+      - name: Rebuild archive and episode list
+        working-directory: app
+        run: python3 tools/build_catalog.py --feed --cats ../_cats --report catalog_report.txt
+
+      - name: Show report
+        if: always()
+        run: cat app/catalog_report.txt || true
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name  "feed-bot"
+          git config user.email "feed-bot@users.noreply.github.com"
+          git add app/catalog.json app/catalog/archive.json
+          if git diff --staged --quiet; then echo "Nothing changed - no commit."; exit 0; fi
+          git commit -m "Refresh episode list ($(date -u '+%Y-%m-%d %H:%M UTC'))"
+          for i in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "Push rejected - syncing and retrying ($i of 3)"
+            git pull --rebase -X ours || { git rebase --abort; exit 1; }
+          done
+          exit 1

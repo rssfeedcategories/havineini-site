@@ -1,0 +1,4 @@
+_cats/
+app/catalog_report.txt
+app/catalog/*.tmp
+__pycache__/
