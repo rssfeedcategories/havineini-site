@@ -33,7 +33,8 @@ ITUNES = "{http://www.itunes.com/dtds/podcast-1.0.dtd}"
 ATOM_LINK = "{http://www.w3.org/2005/Atom}link"
 
 # ---------------------------------------------------------------- categories
-# Names exactly as in the Libsyn portal / podcast-feeds. Order = order in the app.
+# Names exactly as in the Libsyn portal / podcast-feeds. The app order is set by
+# category_order() below; this list only breaks ties for episodes in two categories.
 DAILY = "Daily Shiur - שיעור יומי"
 CATEGORY_ORDER = [
     "הבינני בהלכה", DAILY, "דף היומי", "תלמוד ירושלמי", "ספר חפץ חיים", "חובת הלבבות",
@@ -326,8 +327,22 @@ def order_within(lst, flat=False):
         return sorted(posd, key=lambda e: (e["pos"], ts(e))) + sorted(rest, key=ts)
     return sorted(lst, key=lambda e: -ts(e)) if flat else sorted(lst, key=ts)
 
+# Izzy (Nov 1): these four always first, in this order; every other category
+# after them, the one with the newest shiur first (so categories that are
+# currently being added to rise to the top by themselves).
+TOP = [DAILY, "הבינני בהלכה", "אור החיים הקדוש", "חובת הלבבות"]
+LAST = ["הודעות", "GENERAL", "general"]
+
+def category_order(eps):
+    newest = collections.defaultdict(float)
+    for e in eps:
+        newest[e["c"]] = max(newest[e["c"]], ts(e))
+    rest = [c for c in newest if c not in TOP and c not in LAST]
+    rest.sort(key=lambda c: -newest[c])
+    return [c for c in TOP if c in newest] + rest + [c for c in LAST if c in newest]
+
 def build(eps):
-    cats = collections.OrderedDict((c, []) for c in CATEGORY_ORDER)
+    cats = collections.OrderedDict((c, []) for c in category_order(eps))
     for e in eps:
         cats.setdefault(e["c"], []).append(e)
     meta = []
