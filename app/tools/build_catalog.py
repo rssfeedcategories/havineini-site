@@ -271,6 +271,23 @@ def desc_text(html):
     lines = [l.strip() for l in t.splitlines() if l.strip()]
     return " ".join(lines[:2])[:300]
 
+def desc_lines(html_text):
+    """Description as plain-text lines (Libsyn descriptions are HTML)."""
+    t = re.sub(r"<br\s*/?>|</p>|</div>|</li>", "\n", html_text or "", flags=re.I)
+    t = re.sub(r"<[^>]+>", " ", t)
+    import html as _html
+    t = _html.unescape(t).replace("\u00a0", " ")
+    return [re.sub(r"[ \t]+", " ", l).strip(" -–\t") for l in t.splitlines() if l.strip(" -–\t")]
+
+def display_desc(e, shown_title):
+    """The description shown under the title in the app: plain text, without
+    the line already shown as the title, at most 1500 characters."""
+    lines = desc_lines(e.get("desc"))
+    norm_t = norm(shown_title)
+    lines = [l for l in lines if norm(l) and norm(l) not in norm_t]
+    out = "\n".join(lines).strip()
+    return out[:1500].rstrip() + ("…" if len(out) > 1500 else "")
+
 BARE_TITLE = re.compile(r"^(.*?#\s*\d+)[\s\-–'\"״׳.,]*$")
 
 def display_title(e):
@@ -487,6 +504,8 @@ def main():
     out = []
     for e in sorted(items, key=lambda e: -ts(e)):
         r = {"id": e["id"], "t": display_title(e), "d": e.get("d"), "a": e["a"], "c": e["c"], "s": e["s"], "o": e["o"]}
+        ds = display_desc(e, r["t"])
+        if ds: r["ds"] = ds
         if videos.get(e["id"]): r["v"] = videos[e["id"]]
         if e.get("ty") and e["ty"] != "audio/mpeg": r["ty"] = e["ty"]
         if e.get("sec"): r["dur"] = fmt_dur(e["sec"])
