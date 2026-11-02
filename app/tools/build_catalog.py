@@ -271,6 +271,23 @@ def desc_text(html):
     lines = [l.strip() for l in t.splitlines() if l.strip()]
     return " ".join(lines[:2])[:300]
 
+BARE_TITLE = re.compile(r"^(.*?#\s*\d+)[\s\-–'\"״׳.,]*$")
+
+def display_title(e):
+    """Many shiurim were uploaded as just "הבינני בהלכה #898" with the סימן / סעיף
+    only in the description: show the description's first line after the number.
+    The archive keeps the original title."""
+    t = e.get("t") or ""
+    m = BARE_TITLE.match(t)
+    if not m or not e.get("desc"):
+        return t
+    first = re.sub(r"<br\s*/?>|</p>", "\n", e["desc"], flags=re.I)
+    first = re.sub(r"<[^>]+>", " ", first).replace("&nbsp;", " ").replace("&quot;", '"').replace("&#39;", "'")
+    lines = [l.strip(" -–\t") for l in first.splitlines() if l.strip(" -–\t")]
+    if not lines or len(lines[0]) < 3:
+        return t
+    return f"{m.group(1)} - {lines[0][:160]}"
+
 def primary(cats):
     strong = [c for c in cats if c not in WEAK] or list(cats)
     rank = {c: i for i, c in enumerate(CATEGORY_ORDER)}
@@ -469,7 +486,7 @@ def main():
     own_images = {g for g in load_json(HERE / "catalog" / "own_images.json", {}).get("ids", [])}
     out = []
     for e in sorted(items, key=lambda e: -ts(e)):
-        r = {"id": e["id"], "t": e["t"], "d": e.get("d"), "a": e["a"], "c": e["c"], "s": e["s"], "o": e["o"]}
+        r = {"id": e["id"], "t": display_title(e), "d": e.get("d"), "a": e["a"], "c": e["c"], "s": e["s"], "o": e["o"]}
         if videos.get(e["id"]): r["v"] = videos[e["id"]]
         if e.get("ty") and e["ty"] != "audio/mpeg": r["ty"] = e["ty"]
         if e.get("sec"): r["dur"] = fmt_dur(e["sec"])
