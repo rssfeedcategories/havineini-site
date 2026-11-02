@@ -466,13 +466,17 @@ def main():
             if v.get("image"): m["icon"] = v["image"]
 
     default_img = arc.get("channel", {}).get("image")
+    own_images = {g for g in load_json(HERE / "catalog" / "own_images.json", {}).get("ids", [])}
     out = []
     for e in sorted(items, key=lambda e: -ts(e)):
         r = {"id": e["id"], "t": e["t"], "d": e.get("d"), "a": e["a"], "c": e["c"], "s": e["s"], "o": e["o"]}
         if videos.get(e["id"]): r["v"] = videos[e["id"]]
         if e.get("ty") and e["ty"] != "audio/mpeg": r["ty"] = e["ty"]
         if e.get("sec"): r["dur"] = fmt_dur(e["sec"])
-        if e.get("img") and e["img"] != default_img: r["img"] = e["img"]
+        # Every Libsyn upload carries the logo as its picture, so pictures are
+        # left out (the app then shows the category tile, like Birkas) - except
+        # shiurim listed in catalog/own_images.json (a real flyer or page).
+        if e["id"] in own_images and e.get("img") and e["img"] != default_img: r["img"] = e["img"]
         if e.get("l"): r["l"] = e["l"]
         if e["n"] is not None: r["n"] = e["n"]
         if e["p"] and e["s"]: r["p"] = [level3_label(LEVEL3[e["c"]], n) for n in e["p"]]
