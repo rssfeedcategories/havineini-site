@@ -536,7 +536,10 @@ def main():
         out.append(r)
 
     doc = {"version": 1, "generated": now, "defaultImage": default_img, "categories": meta,
-           "episodes": out, "hidden": hidden_ids}
+           "episodes": out, "hidden": hidden_ids,
+           # For shiurim the app finds on Libsyn before this list has them:
+           # title text -> category (first match), else the fallback.
+           "titleRules": [[p_, c_] for p_, c_ in TITLE_RULES], "fallbackCategory": FALLBACK}
     prev = load_json(a.out, None)
     if prev and {**prev, "generated": None} == {**doc, "generated": None}:
         say("catalog unchanged")
