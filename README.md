@@ -1,4 +1,7 @@
-# Havineini – episode list and website
+# Havineini – website and episode list
+
+Website: https://rssfeedcategories.github.io/havineini-site/ (`index.html`, a copy of the Birkas Shiur website in Havineini's look; `privacy.html`, `support.html`).
+It reads the same `app/catalog.json` as the app. Store buttons: fill in `STORE` in index.html once the app is published.
 
 Data for the **Havineini App** (Rabbi Shimon Spitzer's shiurim).
 
