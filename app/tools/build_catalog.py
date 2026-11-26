@@ -56,6 +56,20 @@ TITLE_RULES = [
 ]
 FALLBACK = DAILY
 
+# Our own category moves (Izzy, Nov 2026 - we can't change categories on Libsyn).
+# 1. A shiur filed on Libsyn only under Daily Shiur / GENERAL / הודעות whose title
+#    STARTS with a series name goes to that series, e.g. "ספר חפץ חיים שיעור #139".
+SERIES_PREFIX = [
+    ("ספר חפץ חיים", "ספר חפץ חיים"), ("הבינני בהלכה", "הבינני בהלכה"), ("תלמוד ירושלמי", "תלמוד ירושלמי"),
+    ("אור החיים הקדוש", "אור החיים הקדוש"), ("אור החיים הק", "אור החיים הקדוש"),
+    ("חובות הלבבות", "חובת הלבבות"), ("חובת הלבבות", "חובת הלבבות"),
+    ("עניני שבת קודש", "שבת קודש"), ("עיון תפילה", "עיון תפילה"), ("מסכת ", "דף היומי"),
+]
+# 2. Moves by hand: catalog/category_fixes.json {"ids": {episode id: category}} - always wins.
+def series_of(title):
+    t = norm(title).lstrip(" ?[🔥!-–")
+    return next((c for p, c in SERIES_PREFIX if t.startswith(norm(p))), None)
+
 SHAS = ["ברכות","שבת","עירובין","פסחים","שקלים","יומא","סוכה","ביצה","ראש השנה","תענית","מגילה","מועד קטן",
         "חגיגה","יבמות","כתובות","נדרים","נזיר","סוטה","גיטין","קידושין","בבא קמא","בבא מציעא","בבא בתרא",
         "סנהדרין","מכות","שבועות","עבודה זרה","הוריות","זבחים","מנחות","חולין","בכורות","ערכין","תמורה",
@@ -310,8 +324,13 @@ def primary(cats):
     rank = {c: i for i, c in enumerate(CATEGORY_ORDER)}
     return min(strong, key=lambda c: rank.get(c, len(rank))) if strong else None
 
-def classify(e):
+def classify(e, fixes=None):
     cat = primary(e["cats"])
+    fix = (fixes or {}).get(e.get("id"))
+    if fix:
+        cat = fix; e["moved"] = "by hand"
+    elif cat is not None and all(c in WEAK for c in e["cats"]) and series_of(e["t"]):
+        cat = series_of(e["t"]); e["moved"] = "title"
     if cat is None:
         t = norm(e["t"])
         cat = next((c for p, c in TITLE_RULES if norm(p) in t), FALLBACK)
@@ -486,8 +505,10 @@ def main():
     is_hidden = lambda e: e["id"] in hid["ids"] or any(t and t in e.get("t", "") for t in hid["titles_contain"])
     hidden_ids = sorted(e["id"] for e in items if is_hidden(e))
     items = [e for e in items if not is_hidden(e) and e.get("a")]
+    fixes = {k: v for k, v in load_json(HERE / "catalog" / "category_fixes.json", {}).get("ids", {}).items()
+             if isinstance(v, str) and v.strip()}
     for e in items:
-        classify(e)
+        classify(e, fixes)
     inherited = inherit_sections(items)
     meta = build(items)
     icons = load_json(HERE / "catalog" / "category_icons.json", {})
@@ -553,6 +574,9 @@ def main():
         rep = log + ["", f"sections inherited from previous shiur: {inherited}",
                      f"category guessed from title (not in any category list yet): {len(guessed)}"]
         rep += [f"  {e['d']}  {e['c']}  <-  {e['t']}" for e in sorted(guessed, key=lambda e: -ts(e))[:40]]
+        moved = [e for e in items if e.get("moved")]
+        rep += ["", f"moved by us (category_fixes.json / series title): {len(moved)}"]
+        rep += [f"  {e['d'][:10]}  {e['moved']:7}  {e['c']}  <-  {e['t']}" for e in sorted(moved, key=lambda e: -ts(e))]
         rep += ["", "categories:"] + [f"  {m['count']:5}  {m['name']}  ({len(m['sections'])} sections)" for m in meta]
         rep += ["", "episodes without a section in a sectioned category:"] + [f"  {n:5}  {c}" for c, n in nosec.items()]
         pathlib.Path(a.report).write_text("\n".join(rep) + "\n", encoding="utf-8")

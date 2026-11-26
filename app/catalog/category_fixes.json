@@ -1,0 +1,4 @@
+{
+ "_about": "Category moves by hand (we can't change categories on Libsyn). Episode id -> category name, exactly as in the app. Always wins over Libsyn. Shiurim filed only under Daily Shiur/GENERAL/הודעות whose title starts with a series name are moved automatically (SERIES_PREFIX in tools/build_catalog.py) and don't need to be listed here.",
+ "ids": {}
+}
