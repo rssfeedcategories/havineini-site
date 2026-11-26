@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  issues: write     # the category check asks Izzy through a GitHub issue
 
 concurrency:
   group: build-catalog
@@ -45,11 +46,28 @@ jobs:
         if: always()
         run: cat app/catalog_report.txt || true
 
+      # Shiurim that may need a different category: ask Izzy (GitHub issue ->
+      # notification + email). Each shiur is reported once (alerts_sent.json).
+      - name: Category check
+        working-directory: app
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/check_categories.py --out "$RUNNER_TEMP/alert.md" || { echo "::warning::category check failed"; exit 0; }
+          if [ -s "$RUNNER_TEMP/alert.md" ]; then
+            gh issue create --repo "${{ github.repository }}" \
+              --title "Havineini: shiurim to check ($(date -u '+%b %-d'))" \
+              --body-file "$RUNNER_TEMP/alert.md" --assignee rssfeedcategories \
+              || gh issue create --repo "${{ github.repository }}" \
+                   --title "Havineini: shiurim to check ($(date -u '+%b %-d'))" --body-file "$RUNNER_TEMP/alert.md" \
+              || { echo "::warning::could not open the issue - keeping the shiurim for the next run"; git checkout -- catalog/alerts_sent.json || true; }
+          fi
+
       - name: Commit if anything changed
         run: |
           git config user.name  "feed-bot"
           git config user.email "feed-bot@users.noreply.github.com"
-          git add app/catalog.json app/catalog/archive.json
+          git add app/catalog.json app/catalog/archive.json app/catalog/alerts_sent.json
           if git diff --staged --quiet; then echo "Nothing changed - no commit."; exit 0; fi
           git commit -m "Refresh episode list ($(date -u '+%Y-%m-%d %H:%M UTC'))"
           for i in 1 2 3; do
