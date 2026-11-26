@@ -1,4 +1,6 @@
 {
  "_about": "Shiurim already reported by check_categories.py (id -> reason).",
- "ids": {}
+ "ids": {
+  "04464354-933f-4666-b41e-7d9671e113b7": "other-category"
+ }
 }
